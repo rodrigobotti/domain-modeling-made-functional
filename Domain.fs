@@ -1,5 +1,7 @@
 namespace OrderTaking.Domain
 
+open FSharpPlus.Data
+
 type Undefined = exn
 
 // Product code related
@@ -11,12 +13,34 @@ type ProductCode =
   | Gizmo of GizmoCode
 
 // OrderQuantity related
-type UnitQuantity = UnitQuantity of int
-type KilogramQuantity = KilogramQuantity of decimal
+type UnitQuantity = private UnitQuantity of int
+
+module UnitQuantity =
+  /// smart constructor
+  let create qty =
+    if qty < 1 then
+      Error "UnityQuantity cannot be negative"
+    else if qty > 1000 then
+      Error "UnityQuantity cannot be more than 1000"
+    else
+      Ok(UnitQuantity qty)
+
+  let value (UnitQuantity qty) = qty
+
+// units of measure have no runtime performance hit; used only at compile time
+[<Measure>]
+type kg
+
+type KilogramQuantity = KilogramQuantity of decimal<kg>
 
 type OrderQuantity =
   | Unit of UnitQuantity
   | Kilos of KilogramQuantity
+
+type UnvalidatedAddress = Undefined
+type ValidatedAddress = private ValidatedAddress of Undefined
+
+type AddressValidationService = UnvalidatedAddress -> ValidatedAddress option
 
 type OrderId = Undefined
 type OrderLineId = Undefined
@@ -33,7 +57,7 @@ type Order =
     CustomerId: CustomerId // customer reference -> order aggregate should not have a Customer record inside: consistency boundaries
     ShippingAddress: ShippingAddress
     BillingAddress: BillingAddress
-    OrderLines: OrderLine list
+    OrderLines: NonEmptyList<OrderLine>
     AmountToBill: BillingAmount }
 
 and OrderLine =
@@ -49,7 +73,7 @@ and OrderLine =
 type UnvalidatedOrder =
   { OrderId: string
     CustomerInfo: Undefined
-    ShippingAddress: Undefined (* other data *)  }
+    ShippingAddress: UnvalidatedAddress (* other data *)  }
 
 // output: single record with all output events
 type PlaceOrderEvents =

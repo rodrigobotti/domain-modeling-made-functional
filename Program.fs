@@ -248,3 +248,72 @@ type OderLine =
 // updating records: copy + replace
 let updatedContact1 =
   { contact1 with PhoneNumber = PhoneNumber "0000" }
+
+// ---
+// capturing business rules in the type system:
+
+(*
+  example business rule 1: suppose we store customer email addresses
+  some emails have been verified and others not
+  - should only send verification emails to unverified email addresses -> avoid spamming verified
+  - should only send password reset emails to verified email addresses -> security
+
+  1. standard approach - using flags
+  
+  type CustomerEmail =
+    { EmailAddress: EmailAddress
+      IsVerified: bool }
+
+  has some problems: 
+  - not clear when the flag should be set/unset
+  - security: accidentaly set to true even for unverified emails
+
+  2. pay attention to the domain
+  domain experts talks about "verified" and "unverified" emails -> model as separate things
+
+  2.1 choice type with same data
+  "customer email is wither verified or unverified"
+
+  type CustomerEmail =
+    | Unverified of EmailAddress
+    | Verified of EmailAddress
+  
+  we can still create a Verified case using an unverified EmailAddress
+
+  2.2 choice type with diferent data types
+
+  type CustomerEmail =
+    | Unverified of EmailAddress
+    | Verified of VerifiedEmailAddress // <- different from EmailAddress!
+
+  then we can give VerifiedEmailAddress a private constructor and only the verification service can create it.
+  that means: if I have a new email address, I HAVE to construct a CustomerEmail using the Unverified case because I dont have a VerifiedEmailAddress.
+  The only way to construct the Verified case is to have a VerifiedEmailAddress which can only come from the email verification service.
+  
+  type SendPasswordResetEmail = VerifiedEmailAddress -> SideEffect ...
+
+  "Make illegal states unrepresentable"
+
+*)
+
+(* 
+  example business rule 2 = "a customer must have either an email or a postal address"
+  possibilities: email ony; address only; both address and email
+*)
+
+type Name = Undefined
+type EmailContactInfo = Undefined
+type PostalContactInfo = Undefined
+
+type BothContactMethods =
+  { Email: EmailContactInfo
+    Address: PostalContactInfo }
+
+type ContactInfo =
+  | EmailOnly of EmailContactInfo
+  | AddrOnly of PostalContactInfo
+  | EmailAndAddr of BothContactMethods
+
+type Contact3 =
+  { Name: Name
+    ContactInfo: ContactInfo }
